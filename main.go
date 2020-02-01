@@ -4,8 +4,10 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/mynameismaxz/basic_golang/fizzbuzz"
 )
 
 func main() {
@@ -17,5 +19,9 @@ func main() {
 
 func fizzbuzzHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	io.WriteString(w, vars["number"])
+	number, err := strconv.Atoi(vars["number"])
+	if err != nil {
+		log.Fatal(err)
+	}
+	io.WriteString(w, fizzbuzz.FizzBuzz(number))
 }
