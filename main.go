@@ -1,46 +1,13 @@
-// package main
-
-// import (
-// 	"encoding/json"
-// 	"fmt"
-// 	"io"
-// 	"log"
-// 	"net/http"
-
-// 	"github.com/gorilla/mux"
-// )
-
-// func main() {
-// 	r := mux.NewRouter()
-// 	r.HandleFunc("/fizzbuzz/{number}", fizzbuzzHandler)
-
-// 	log.Fatal(http.ListenAndServe(":8080", r))
-// }
-
-// func fizzbuzzHandler(w http.ResponseWriter, r *http.Request) {
-// 	vars := mux.Vars(r)
-
-// 	m := map[string]string{
-// 		"messages": vars["number"],
-// 	}
-// 	b, err := json.Marshal(&m)
-// 	if err != nil {
-// 		w.Header().Set("Content-Type", "application/json")
-// 		w.WriteHeader(http.StatusInternalServerError)
-// 		io.WriteString(w, fmt.Sprintf(`{"message": "%s"}`, err))
-// 	}
-
-// 	w.Header().Set("Content-Type", "application/json")
-// 	w.WriteHeader(http.StatusOK)
-// 	io.WriteString(w, string(b))
-// }
-
 package main
 
 import (
+	"fmt"
+	"math/rand"
 	"net/http"
 	"strconv"
+	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/mynameismaxz/basic_golang/fizzbuzz"
 )
@@ -50,6 +17,11 @@ import (
 type Response struct {
 	Number string `json:"number" xml:"number"`
 	Result string `json:"result" xml:"result"`
+}
+
+type FuzzResponse struct {
+	Number  string `json:"number"`
+	Message string `json:"message"`
 }
 
 type Users []User
@@ -88,7 +60,26 @@ func main() {
 	r := gin.Default()
 
 	r.POST("/users", usersHandler)
+	r.GET("/token", tokenHandler)
 	r.GET("/fizzbuzz/:number", func(c *gin.Context) {
+		tokenKey := c.GetHeader("Authorization")[7:]
+
+		token, err := jwt.Parse(tokenKey, keyFunc)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, map[string]string{
+				"message": err.Error(),
+			})
+			return
+		}
+
+		if _, ok := token.Claims.(jwt.MapClaims); !ok || !token.Valid {
+			// not pass
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"message": "Unauthorized",
+			})
+			return
+		}
+
 		output_number := c.Param("number")
 		n, err := strconv.Atoi(output_number)
 		if err != nil {
@@ -100,10 +91,63 @@ func main() {
 
 		c.JSON(http.StatusOK, Response{
 			Number: output_number,
-			Result: fizzbuzz.FizzBuzz(n),
+			Result: fizzbuzz.New(n).String(),
 		})
 	})
+	r.GET("/fizzbuzzr", fizzbuzzRandomHandler)
+
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+}
+
+func fizzbuzzRandomHandler(c *gin.Context) {
+	s2 := rand.NewSource(time.Now().UnixNano())
+	r2 := rand.New(s2)
+	c.JSON(http.StatusOK, fizzbuzzByRandom(r2))
+}
+
+type randomer interface {
+	Intn(int) int
+}
+
+func fizzbuzzByRandom(r randomer) FuzzResponse {
+	n := r.Intn(100)
+	return FuzzResponse{
+		Number:  strconv.Itoa(n),
+		Message: fizzbuzz.New(n).String(),
+	}
+}
+
+func keyFunc(token *jwt.Token) (interface{}, error) {
+	// Don't forget to validate the alg is what you expect:
+	if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+	}
+
+	// hmacSampleSecret is a []byte containing your secret, e.g. []byte("my_secret_key")
+	return []byte("BasicGolang"), nil
+}
+
+func tokenHandler(c *gin.Context) {
+	mySigningKey := []byte("BasicGolang")
+
+	// Create the Claims
+	claims := jwt.StandardClaims{
+		ExpiresAt: time.Now().Add(time.Minute * 5).Unix(),
+		Issuer:    "Mac",
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	ss, err := token.SignedString(mySigningKey)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": err.Error(),
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": ss,
+	})
+	// fmt.Printf("%v %v", ss, err)
 }
 
 func usersHandler(c *gin.Context) {
