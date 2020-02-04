@@ -19,7 +19,7 @@ type Response struct {
 	Result string `json:"result" xml:"result"`
 }
 
-type FuzzResponse struct {
+type FizzBuzzRandomResponse struct {
 	Number  string `json:"number"`
 	Message string `json:"message"`
 }
@@ -56,6 +56,10 @@ type Company struct {
 	Bs          string `json:"bs"`
 }
 
+func wrapper(next gin.HandlerFunc) gin.HandlerFunc {
+
+}
+
 func main() {
 	r := gin.Default()
 
@@ -80,6 +84,8 @@ func main() {
 			return
 		}
 
+		// -----
+
 		output_number := c.Param("number")
 		n, err := strconv.Atoi(output_number)
 		if err != nil {
@@ -100,18 +106,24 @@ func main() {
 }
 
 func fizzbuzzRandomHandler(c *gin.Context) {
-	s2 := rand.NewSource(time.Now().UnixNano())
-	r2 := rand.New(s2)
-	c.JSON(http.StatusOK, fizzbuzzByRandom(r2))
+	// s2 := rand.NewSource(time.Now().UnixNano())
+	// r2 := rand.New(s2)
+	c.JSON(http.StatusOK, fizzbuzzByRandom(IntnFunc(rand.Intn)))
 }
 
 type randomer interface {
 	Intn(int) int
 }
 
-func fizzbuzzByRandom(r randomer) FuzzResponse {
+type IntnFunc func(int) int
+
+func (fn IntnFunc) Intn(n int) int {
+	return fn(n)
+}
+
+func fizzbuzzByRandom(r randomer) FizzBuzzRandomResponse {
 	n := r.Intn(100)
-	return FuzzResponse{
+	return FizzBuzzRandomResponse{
 		Number:  strconv.Itoa(n),
 		Message: fizzbuzz.New(n).String(),
 	}

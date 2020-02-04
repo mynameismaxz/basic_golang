@@ -14,7 +14,7 @@ func (r fakeRandomer) Intn(int) int {
 func TestFizzBuzzByRandom(t *testing.T) {
 	r := fakeRandomer("")
 
-	want := FuzzResponse{
+	want := FizzBuzzRandomResponse{
 		Number:  "3",
 		Message: "Fizz",
 	}
